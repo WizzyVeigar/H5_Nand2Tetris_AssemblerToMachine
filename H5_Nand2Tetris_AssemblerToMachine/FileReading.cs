@@ -7,101 +7,88 @@ using System.IO;
 
 namespace H5_Nand2Tetris_AssemblerToMachine
 {
-    //Hello Nanna :)
     internal class FileReading
     {
         PredefinedValues predefinedValues = new PredefinedValues();
+        StringBuilder machineString = new StringBuilder();
         public void ReadFile(string filename)
         {
-            string[] testing = new string[]
+            if (machineString.Length > 0)
             {
-                "@21",
-                "D=A",
-                "@TEMP",
-                "M=D",
-                "@0",
-                "0;JMP"
-            };
-
-            AddLabelsToPredifinedValues(testing);
-            AddVariablesToPredifinedValues(testing);
-
-            StringBuilder machineString = new StringBuilder();
-
-            for (int i = 0; i < testing.Length; i++)
-            {
-                //If A instruction
-                if (testing[i].Contains('@'))
-                {
-                    string variableOrNum = testing[i].Split('@', ' ')[1];
-                    if (predefinedValues.aValues.ContainsKey(variableOrNum))
-                    {
-                        machineString.Append(predefinedValues.aValues[variableOrNum]);
-                    }
-                    else
-                    {
-                        machineString.Append(BitConverter.ConvertToBitArray(Convert.ToInt32(variableOrNum)));
-                    }
-                }
-                //else C instruction
-                else
-                {
-                    string dest, comp, jump;
-
-                    machineString.Append(111);
-
-                    if (testing[i].Contains('='))
-                    {
-                        dest = testing[i].Split(' ', '=')[1];
-                    }
-                    else
-                        dest = "000";
-
-
-                    if (testing[i].Contains(';'))
-                    {
-                        jump = testing[i].Split(';', ' ')[1];
-                    }
-                    else
-                        jump = "000";
-
-                    if (dest == "000" && jump != "000")
-                        comp = testing[i].Split(' ', ';')[1];
-
-                    else if (dest != "000" && jump == "000")
-                        comp = testing[i].Split('=', ' ')[1];
-                    else
-                        comp = testing[i].Split('=', ';')[1];
-
-                    machineString.Append(predefinedValues.aValues[comp]);
-                    machineString.Append(predefinedValues.destInstruction[dest]);
-                    machineString.Append(predefinedValues.jumpInstructions[jump]);
-                }
+                machineString.Clear();
             }
 
-            //if (File.Exists(filename))
+            //string[] testing = new string[]
             //{
-            //    string[] file = File.ReadAllLines(filename);
-            //    AddLabelsToPredifinedValues(file);
-            //    AddVariablesToPredifinedValues(file)
-            //}
+            //    "(START)",
+            //    "@21",
+            //    "D=A",
+            //    "@TEMP",
+            //    "M=D",
+            //    "@START",
+            //    "0;JMP"
+            //};
+
+            if (File.Exists(filename))
+            {
+                string[] file = File.ReadAllLines(filename);
+                ConvertFileToMachine(file);
+            }
+
+
+            File.WriteAllText(Environment.CurrentDirectory + "/output.hack", machineString.ToString());
         }
 
-        private void AddLabelsToPredifinedValues(string[] file)
+        /// <summary>
+        /// Remove all comments from file, so it won't mess with convertion
+        /// </summary>
+        /// <param name="file"></param>
+        private void RemoveCommentsFromFile(string[] file)
         {
             for (int i = 0; i < file.Length; i++)
             {
-                if (file[i].Contains('('))
+                if (file[i].Contains("//"))
                 {
-                    string loopword = file[i].Split('(', ')')[1];
-                    if (!predefinedValues.aValues.ContainsKey(loopword))
+                    int index = file[i].IndexOf("//");
+                    if (index >= 0)
                     {
-                        predefinedValues.aValues.Add(loopword, BitConverter.ConvertToBitArray(i + 1));
+                        file[i] = file[i].Substring(0, index);
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Add labels to the list of predefined elements
+        /// </summary>
+        /// <param name="file"></param>
+        private void AddLabelsToPredifinedValues(string[] file)
+        {
+            int lineCounter = 0;
+            for (int i = 0; i < file.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(file[i]))
+                {
+
+                    if (file[i].Contains('('))
+                    {
+                        string loopword = file[i].Split('(', ')')[1];
+                        if (!predefinedValues.aValues.ContainsKey(loopword))
+                        {
+                            predefinedValues.aValues.Add(loopword, BitConverter.ConvertToBitString(lineCounter));
+                            file[i] = "";
+                            continue;
+                        }
+                    }
+                    lineCounter++;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Add variables used to the predefined list
+        /// </summary>
+        /// <param name="file"></param>
         private void AddVariablesToPredifinedValues(string[] file)
         {
             int varCounter = 16;
@@ -115,9 +102,84 @@ namespace H5_Nand2Tetris_AssemblerToMachine
                         string variable = file[i].Split('@', ' ')[1];
                         if (!predefinedValues.aValues.ContainsKey(variable))
                         {
-                            predefinedValues.aValues.Add(variable, BitConverter.ConvertToBitArray(varCounter));
+                            predefinedValues.aValues.Add(variable, BitConverter.ConvertToBitString(varCounter));
                             varCounter++;
                         }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Loop through all lines and convert each line into a bit string
+        /// </summary>
+        /// <param name="file"></param>
+        private void ConvertFileToMachine(string[] file)
+        {
+            //They could be here or in the ReadFile()
+            //but it makes sense here, as you want these to be ran, before ConvertFileToMachine()
+
+            RemoveCommentsFromFile(file);
+            AddLabelsToPredifinedValues(file);
+            AddVariablesToPredifinedValues(file);
+
+
+
+            for (int i = 0; i < file.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(file[i]))
+                {
+
+                    //If A instruction
+                    if (file[i].Contains('@'))
+                    {
+                        string variableOrNum = file[i].Split('@', ' ')[1];
+                        if (predefinedValues.aValues.ContainsKey(variableOrNum))
+                        {
+                            machineString.AppendLine(string.Join("", predefinedValues.aValues[variableOrNum]));
+                        }
+                        else
+                        {
+                            machineString.AppendLine(string.Join("", BitConverter.ConvertToBitString(Convert.ToInt32(variableOrNum))));
+                        }
+                    }
+                    //else C instruction
+                    else
+                    {
+                        string dest, comp, jump;
+
+                        machineString.Append(111);
+
+                        if (file[i].Contains('='))
+                        {
+                            dest = file[i].Split(' ', '=')[0];
+                        }
+                        else
+                            dest = "null";
+
+
+                        if (file[i].Contains(';'))
+                        {
+                            jump = file[i].Split(';', ' ')[1];
+                        }
+                        else
+                            jump = "null";
+
+                        if (dest == "null" && jump != "null")
+                            comp = file[i].Split(' ', ';')[0];
+
+                        else if (dest != "null" && jump == "null")
+                            comp = file[i].Split('=', ' ')[1];
+                        else
+                            comp = file[i].Split('=', ';')[1];
+
+
+                        comp = string.Join("", predefinedValues.compInstructions[comp]);
+                        dest = string.Join("", predefinedValues.destInstruction[dest]);
+                        jump = string.Join("", predefinedValues.jumpInstructions[jump]);
+                        machineString.Append(comp);
+                        machineString.Append(dest);
+                        machineString.AppendLine(jump);
                     }
                 }
             }
