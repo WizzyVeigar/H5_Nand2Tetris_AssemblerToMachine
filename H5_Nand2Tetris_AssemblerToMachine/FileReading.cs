@@ -7,6 +7,7 @@ using System.IO;
 
 namespace H5_Nand2Tetris_AssemblerToMachine
 {
+    //Hello Nanna :)
     internal class FileReading
     {
         PredefinedValues predefinedValues = new PredefinedValues();
