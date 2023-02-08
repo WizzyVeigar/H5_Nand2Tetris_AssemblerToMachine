@@ -36,7 +36,7 @@ namespace H5_Nand2Tetris_AssemblerToMachine
             }
 
 
-            File.WriteAllText(Environment.CurrentDirectory + "/output.hack", machineString.ToString());
+            File.WriteAllText(Environment.CurrentDirectory + "/Fill.hack", machineString.ToString());
         }
 
         /// <summary>
